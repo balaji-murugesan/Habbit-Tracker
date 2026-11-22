@@ -1,0 +1,15 @@
+services:
+  habit-tracker:
+    build: .
+    image: habit-tracker:latest
+    container_name: habit-tracker
+    ports:
+      - "8080:3000"
+    environment:
+      - TZ=${TZ:-UTC}
+    volumes:
+      - habit-data:/data
+    restart: unless-stopped
+
+volumes:
+  habit-data:

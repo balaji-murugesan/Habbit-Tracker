@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <title>Habit Tracker</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%23FFD60A'/%3E%3Cpath d='M6 12.5l4 4L18 8' stroke='%23000' stroke-width='2.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <h1 id="title"><span class="t-main">Today,</span> <span class="t-sub"></span></h1>
+      <div class="top-actions">
+        <button class="round-btn" id="btn-today" title="Jump to today" aria-label="Jump to today"></button>
+        <button class="round-btn" id="btn-settings" title="Settings" aria-label="Settings"></button>
+      </div>
+    </header>
+
+    <section class="week">
+      <button class="week-nav" id="week-prev" aria-label="Previous week"></button>
+      <div class="week-days" id="week-days"></div>
+      <button class="week-nav" id="week-next" aria-label="Next week"></button>
+    </section>
+
+    <section class="toolbar">
+      <div>
+        <div class="label">Filter</div>
+        <div class="seg" role="tablist">
+          <button role="tab" data-filter="all" class="active">All (0)</button>
+          <button role="tab" data-filter="due">Due (0)</button>
+        </div>
+      </div>
+      <div class="score-wrap">
+        <div class="label">Habit Score</div>
+        <div class="score" id="score"><span class="ico"></span><span class="val">–</span></div>
+      </div>
+    </section>
+
+    <main id="list" class="list"></main>
+    <div id="empty" class="empty" hidden>
+      <p>No habits yet.</p>
+      <p class="muted">Tap <b>+</b> to create your first habit.</p>
+    </div>
+  </div>
+
+  <nav class="bottombar">
+    <button class="bb-btn active" aria-label="Habits" id="bb-habits"></button>
+    <button class="fab" id="fab" aria-label="Add habit"></button>
+    <button class="bb-btn" aria-label="Today" id="bb-today"></button>
+  </nav>
+
+  <!-- Habit editor -->
+  <dialog id="dlg-habit" class="sheet">
+    <form method="dialog" id="form-habit">
+      <header class="sheet-head">
+        <h2 id="habit-dlg-title">New habit</h2>
+        <button type="button" class="icon-btn" data-close aria-label="Close"></button>
+      </header>
+      <label class="field">
+        <span>Name</span>
+        <input name="name" required maxlength="80" placeholder="e.g. Read 20 pages" autocomplete="off">
+      </label>
+      <div class="field">
+        <span>Icon</span>
+        <div class="icon-picker" id="icon-picker"></div>
+      </div>
+      <div class="field">
+        <span>Color</span>
+        <div class="color-picker" id="color-picker"></div>
+      </div>
+      <div class="field row">
+        <label class="grow">
+          <span>Frequency</span>
+          <select name="frequency">
+            <option value="daily">Every day</option>
+            <option value="weekly">Times per week</option>
+          </select>
+        </label>
+        <label class="target-field">
+          <span>Times / week</span>
+          <input name="target_per_week" type="number" min="1" max="7" value="3">
+        </label>
+      </div>
+      <footer class="sheet-foot">
+        <button type="button" class="btn danger" id="btn-delete" hidden>Delete</button>
+        <span class="grow"></span>
+        <button type="button" class="btn ghost" data-close>Cancel</button>
+        <button type="submit" class="btn primary">Save</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- Note editor -->
+  <dialog id="dlg-note" class="sheet">
+    <form method="dialog" id="form-note">
+      <header class="sheet-head">
+        <h2 id="note-title">Note</h2>
+        <button type="button" class="icon-btn" data-close aria-label="Close"></button>
+      </header>
+      <p class="muted" id="note-sub"></p>
+      <textarea name="text" rows="8" placeholder="How did it go today?"></textarea>
+      <footer class="sheet-foot">
+        <span class="grow"></span>
+        <button type="button" class="btn ghost" data-close>Cancel</button>
+        <button type="submit" class="btn primary">Save note</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- Settings -->
+  <dialog id="dlg-settings" class="sheet">
+    <div>
+      <header class="sheet-head">
+        <h2>Settings</h2>
+        <button type="button" class="icon-btn" data-close aria-label="Close"></button>
+      </header>
+      <div class="settings-list">
+        <a class="btn ghost block" href="api/export" download>Export backup (JSON)</a>
+        <label class="btn ghost block">
+          Import backup…
+          <input type="file" id="import-file" accept="application/json" hidden>
+        </label>
+        <p class="muted small">Importing replaces all current habits, check-ins and notes.</p>
+      </div>
+    </div>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
