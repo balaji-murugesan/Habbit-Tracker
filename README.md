@@ -32,7 +32,7 @@ In Docker Desktop you'll see the `habit-tracker` container under **Containers** 
 | Stop | `docker compose down` |
 | Update after pulling changes | `docker compose up -d --build` |
 | View logs | `docker compose logs -f` |
-| Use another port | change `"8080:3000"` in `docker-compose.yml` |
+| Use another port (e.g. "port is already allocated") | `HOST_PORT=8081 docker compose up -d`, or put `HOST_PORT=8081` in a `.env` file next to `docker-compose.yml` |
 | Delete **all** data | `docker compose down -v` |
 
 **Backups:** Settings (⚙) → *Export backup* downloads a JSON file, and *Import backup* restores one.

@@ -4,7 +4,8 @@ services:
     image: habit-tracker:latest
     container_name: habit-tracker
     ports:
-      - "8080:3000"
+      # Host port defaults to 8080. If it's taken:  HOST_PORT=8081 docker compose up -d
+      - "${HOST_PORT:-8080}:3000"
     environment:
       # Your time zone, used for reminder times, e.g. Asia/Kolkata, Europe/London, America/New_York.
       # Override without editing this file:  TZ=Asia/Kolkata docker compose up -d
