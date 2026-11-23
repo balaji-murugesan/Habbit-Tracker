@@ -84,3 +84,28 @@ test('dayProgress', () => {
   ];
   assert.equal(S.dayProgress(hs, '2026-11-22'), 0.5);
 });
+
+test('best streak (daily)', () => {
+  const s = set('2026-11-01', '2026-11-02', '2026-11-03', '2026-11-05', '2026-11-06');
+  assert.equal(S.computeBestStreak(daily, s), 3);
+  assert.equal(S.computeBestStreak(daily, set()), 0);
+});
+
+test('best streak (weekly)', () => {
+  // weeks 10-26 & 11-02 met, 11-09 missed, 11-16 met
+  const s = set('2026-10-27', '2026-10-28', '2026-11-03', '2026-11-04', '2026-11-10', '2026-11-17', '2026-11-18');
+  assert.equal(S.computeBestStreak(weekly, s), 2);
+});
+
+test('rateInRange respects start date', () => {
+  const h = { ...daily, created_at: '2026-11-19' };
+  assert.equal(S.rateInRange(h, set('2026-11-19', '2026-11-20'), '2026-11-22', 7), 0.5);
+  assert.equal(S.rateInRange(h, set(), '2026-11-18', 7), null);
+});
+
+test('byWeekday and weeklyCounts', () => {
+  const s = set('2026-11-16', '2026-11-23', '2026-11-22');
+  assert.deepEqual(S.byWeekday(s, '2026-11-22'), [1, 0, 0, 0, 0, 0, 1]);
+  const w = S.weeklyCounts(s, '2026-11-22', 2);
+  assert.deepEqual(w, [{ weekStart: '2026-11-09', count: 0 }, { weekStart: '2026-11-16', count: 2 }]);
+});

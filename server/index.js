@@ -113,6 +113,65 @@ function createApp(db) {
     res.json({ today, weekStart: ws, days, score });
   });
 
+
+  app.get('/api/stats', (req, res) => {
+    const today = resolveDate(req.query.today);
+    const month = /^\d{4}-\d{2}$/.test(req.query.month || '') ? req.query.month : today.slice(0, 7);
+    const monthStart = `${month}-01`;
+    if (!S.isValidDate(monthStart)) return bad(res, 'invalid month');
+    const monthDays = [];
+    for (let d = monthStart; d.slice(0, 7) === month; d = S.addDays(d, 1)) monthDays.push(d);
+
+    const hs = loadHabitsWithSets();
+    const habits = hs.map(({ habit, doneSet }) => {
+      const notes = new Set(q.notesFor.all(habit.id).map((r) => r.date));
+      const cur = S.computeStreak(habit, doneSet, today);
+      return {
+        id: habit.id,
+        name: habit.name,
+        icon: habit.icon,
+        color: habit.color,
+        frequency: habit.frequency,
+        target_per_week: habit.target_per_week,
+        currentStreak: cur.streak,
+        streakUnit: habit.frequency === 'weekly' ? 'weeks' : 'days',
+        bestStreak: S.computeBestStreak(habit, doneSet),
+        score: S.habitScore(habit, doneSet, today),
+        total: [...doneSet].filter((d) => d <= today).length,
+        rate7: S.rateInRange(habit, doneSet, today, 7),
+        rate30: S.rateInRange(habit, doneSet, today, 30),
+        byWeekday: S.byWeekday(doneSet, today),
+        last12Weeks: S.weeklyCounts(doneSet, today, 12),
+        month: monthDays.map((date) => ({ date, done: doneSet.has(date), note: notes.has(date), future: date > today })),
+      };
+    });
+
+    const sumArr = (arrs, n) => Array.from({ length: n }, (_, i) => arrs.reduce((a, x) => a + x[i], 0));
+    const allWeekday = sumArr(habits.map((h) => h.byWeekday), 7);
+    const allWeeks = habits.length
+      ? habits[0].last12Weeks.map((w, i) => ({ weekStart: w.weekStart, count: habits.reduce((a, h) => a + h.last12Weeks[i].count, 0) }))
+      : S.weeklyCounts(new Set(), today, 12);
+    const allMonth = monthDays.map((date, i) => {
+      const done = habits.filter((h) => h.month[i].done).length;
+      return { date, done: done > 0, count: done, ratio: habits.length ? done / habits.length : 0, note: habits.some((h) => h.month[i].note), future: date > today };
+    });
+
+    res.json({
+      today,
+      month,
+      overall: {
+        score: S.overallScore(hs, today),
+        total: habits.reduce((a, h) => a + h.total, 0),
+        activeHabits: habits.length,
+        bestCurrent: habits.reduce((b, h) => (h.currentStreak > (b?.currentStreak ?? -1) ? h : b), null),
+        byWeekday: allWeekday,
+        last12Weeks: allWeeks,
+        month: allMonth,
+      },
+      habits,
+    });
+  });
+
   app.post('/api/habits', (req, res) => {
     const { error, value } = validateHabitBody(req.body || {});
     if (error) return bad(res, error);

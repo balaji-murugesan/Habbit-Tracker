@@ -18,6 +18,7 @@
       </div>
     </header>
 
+    <div id="view-habits">
     <section class="week">
       <button class="week-nav" id="week-prev" aria-label="Previous week"></button>
       <div class="week-days" id="week-days"></div>
@@ -43,12 +44,15 @@
       <p>No habits yet.</p>
       <p class="muted">Tap <b>+</b> to create your first habit.</p>
     </div>
+    </div>
+
+    <div id="view-stats" class="stats" hidden></div>
   </div>
 
   <nav class="bottombar">
     <button class="bb-btn active" aria-label="Habits" id="bb-habits"></button>
     <button class="fab" id="fab" aria-label="Add habit"></button>
-    <button class="bb-btn" aria-label="Today" id="bb-today"></button>
+    <button class="bb-btn" aria-label="Stats" id="bb-stats"></button>
   </nav>
 
   <!-- Habit editor -->

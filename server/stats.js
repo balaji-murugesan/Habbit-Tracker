@@ -175,7 +175,85 @@ function dayProgress(habitsWithSets, date) {
   return applicable === 0 ? 0 : done / applicable;
 }
 
+
+/** Longest run ever: consecutive days (daily) or consecutive target-meeting weeks (weekly). */
+function computeBestStreak(habit, doneSet) {
+  if (doneSet.size === 0) return 0;
+  const dates = [...doneSet].sort();
+  if (habit.frequency === 'weekly') {
+    const target = Math.max(1, habit.target_per_week || 1);
+    let ws = weekStart(dates[0]);
+    const last = weekStart(dates[dates.length - 1]);
+    let best = 0;
+    let run = 0;
+    while (ws <= last) {
+      if (countInWeek(doneSet, ws) >= target) {
+        run++;
+        if (run > best) best = run;
+      } else {
+        run = 0;
+      }
+      ws = addDays(ws, 7);
+    }
+    return best;
+  }
+  let best = 1;
+  let run = 1;
+  for (let i = 1; i < dates.length; i++) {
+    run = diffDays(dates[i - 1], dates[i]) === 1 ? run + 1 : 1;
+    if (run > best) best = run;
+  }
+  return best;
+}
+
+/** Share of days in the `days`-long window ending on `today` that were completed
+ *  (daily), or share of the weekly target achieved over that window (weekly).
+ *  Days before the habit started are excluded. Returns null if no days apply. */
+function rateInRange(habit, doneSet, today, days) {
+  const created = habit.created_at.slice(0, 10);
+  let start = addDays(today, -(days - 1));
+  let earliest = created;
+  for (const d of doneSet) if (d < earliest) earliest = d;
+  if (start < earliest) start = earliest;
+  if (start > today) return null;
+  const span = diffDays(start, today) + 1;
+  let done = 0;
+  for (let d = start; d <= today; d = addDays(d, 1)) if (doneSet.has(d)) done++;
+  if (habit.frequency === 'weekly') {
+    const target = Math.max(1, habit.target_per_week || 1);
+    const expected = (span / 7) * target;
+    return Math.min(1, done / Math.max(1, expected));
+  }
+  return done / span;
+}
+
+/** Completion counts per weekday, Mon=0..Sun=6, over dates <= today. */
+function byWeekday(doneSet, today) {
+  const counts = [0, 0, 0, 0, 0, 0, 0];
+  for (const d of doneSet) {
+    if (d > today) continue;
+    counts[(parseDate(d).getUTCDay() + 6) % 7]++;
+  }
+  return counts;
+}
+
+/** Completions per week for the `weeks` weeks ending with today's week. */
+function weeklyCounts(doneSet, today, weeks = 12) {
+  const lastWs = weekStart(today);
+  const out = [];
+  for (let w = weeks - 1; w >= 0; w--) {
+    const ws = addDays(lastWs, -7 * w);
+    out.push({ weekStart: ws, count: countInWeek(doneSet, ws) });
+  }
+  return out;
+}
+
 module.exports = {
+  computeBestStreak,
+  rateInRange,
+  byWeekday,
+  weeklyCounts,
+  countInWeek,
   parseDate,
   fmtDate,
   addDays,

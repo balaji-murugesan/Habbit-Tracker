@@ -35,6 +35,8 @@ export const UI_ICONS = {
   edit: I('<path d="M4 20l4-1 11-11-3-3L5 16z"/>'),
   close: I('<path d="M6 6l12 12M18 6L6 18"/>'),
   grid: I('<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>'),
+  stats: I('<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'),
+  bell: I('<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>'),
   today: I('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><circle cx="12" cy="15" r="1.5"/>'),
 };
 

@@ -195,3 +195,74 @@ textarea { resize: vertical; min-height: 140px; }
   .app { padding-top: 36px; }
   .cell { min-width: 0; }
 }
+
+/* ---------- stats view ---------- */
+.stats { margin-top: 24px; }
+.tiles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 18px; }
+@media (min-width: 640px) { .tiles { grid-template-columns: repeat(4, 1fr); } }
+.tile { background: var(--card); border-radius: 18px; padding: 14px 16px; min-width: 0; }
+.tile-l { color: var(--muted); font-size: 13px; margin-bottom: 6px; }
+.tile-v { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.tile-s { color: var(--muted); font-size: 13px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.chips { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 18px; scrollbar-width: none; }
+.chips::-webkit-scrollbar { display: none; }
+.chip {
+  --c: var(--accent);
+  display: inline-flex; align-items: center; gap: 6px; flex: none;
+  border: 1px solid var(--line); background: #0c0c0c; border-radius: 999px; padding: 7px 14px; font-size: 14px;
+}
+.chip-i { width: 16px; height: 16px; color: var(--c); }
+.chip.sel { background: var(--c); border-color: var(--c); color: #111; }
+.chip.sel .chip-i { color: #111; }
+
+.stat-grid { display: grid; gap: 18px; }
+@media (min-width: 760px) { .stat-grid { grid-template-columns: 1fr 1fr; } }
+.stat-card { padding: 16px 18px 18px; min-width: 0; }
+.stat-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 12px; }
+.stat-head h3 { margin: 0; font-size: 17px; }
+.month-nav { display: flex; gap: 6px; }
+.month-nav .icon-btn:disabled { opacity: .3; cursor: default; }
+
+.cal { --c: var(--accent); display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.cal-h { text-align: center; color: var(--muted); font-size: 12px; padding-bottom: 2px; }
+.cal-d {
+  aspect-ratio: 1; border: 0; border-radius: 10px; font-size: 14px; font-variant-numeric: tabular-nums;
+  background: color-mix(in srgb, var(--c) 10%, #141414); color: var(--text); position: relative; padding: 0;
+}
+.cal-d.done { background: color-mix(in srgb, var(--c) calc(var(--lvl, 1) * 100%), #141414); color: #111; font-weight: 600; }
+.cal-d.future { opacity: .3; cursor: default; }
+.cal-d.today { box-shadow: inset 0 0 0 2px #fff; }
+.cal-d.note::after { content: ""; position: absolute; top: 4px; right: 4px; width: 5px; height: 5px; border-radius: 50%; background: currentColor; opacity: .75; }
+.cal-d:not(.future):hover { filter: brightness(1.2); }
+
+.chart svg { width: 100%; height: auto; overflow: visible; }
+.chart .grid { stroke: #262626; stroke-width: 1; }
+.chart .axis { fill: var(--muted); font-size: 10px; font-family: inherit; }
+.chart .bar-hit { cursor: default; outline: none; }
+.chart .bar-hit.hover path, .chart .bar-hit:focus-visible path { filter: brightness(1.2); }
+.chart .bar-hit.hover rect { fill: rgba(255, 255, 255, .04); }
+.chart-tip {
+  position: absolute; z-index: 50; pointer-events: none;
+  background: #1f1f1f; border: 1px solid var(--line); border-radius: 10px; padding: 7px 10px;
+  font-size: 13px; line-height: 1.4; color: var(--text); white-space: nowrap; box-shadow: 0 6px 18px rgba(0, 0, 0, .5);
+}
+.table-view { margin-top: 8px; font-size: 13px; color: var(--muted); }
+.table-view summary { cursor: pointer; }
+.table-view table { width: 100%; border-collapse: collapse; margin-top: 6px; color: var(--text); }
+.table-view td, .table-view th { text-align: left; padding: 4px 6px; border-bottom: 1px solid #222; font-weight: 400; }
+.table-view th { color: var(--muted); }
+
+.hrow {
+  --c: var(--accent);
+  display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+  background: none; border: 0; border-top: 1px solid #1f1f1f; padding: 12px 0;
+}
+.hrow:first-of-type { border-top: 0; }
+.hrow-i { width: 38px; height: 38px; border-radius: 50%; background: #1e1e1e; color: var(--c); padding: 9px; flex: none; }
+.hrow-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.hrow-t b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hrow-r { display: flex; align-items: center; gap: 8px; flex: none; }
+.meter { width: 64px; height: 6px; border-radius: 3px; background: #262626; overflow: hidden; }
+.meter span { display: block; height: 100%; background: var(--c); border-radius: 3px; }
+.hrow-v { width: 38px; text-align: right; font-variant-numeric: tabular-nums; font-size: 14px; }

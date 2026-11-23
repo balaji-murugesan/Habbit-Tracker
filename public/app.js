@@ -1,4 +1,5 @@
 import { HABIT_ICONS, UI_ICONS, COLORS } from './icons.js';
+import { createStatsView } from './stats.js';
 
 // ---------- date helpers (local calendar dates as YYYY-MM-DD) ----------
 const pad = (n) => String(n).padStart(2, '0');
@@ -26,6 +27,7 @@ const state = {
   summary: null,
   editing: null,     // habit being edited (null = new)
   noteHabit: null,
+  view: location.hash === '#stats' ? 'stats' : 'habits',
 };
 
 // ---------- api ----------
@@ -55,6 +57,7 @@ async function refresh() {
   state.habits = h.habits;
   state.summary = s;
   render();
+  if (state.view === 'stats') await stats.load();
 }
 
 // ---------- rendering ----------
@@ -177,7 +180,7 @@ function renderList() {
 }
 
 function render() {
-  renderTitle();
+  if (state.view === 'habits') renderTitle();
   renderWeek();
   renderToolbar();
   renderList();
@@ -342,13 +345,16 @@ $('#week-next').innerHTML = UI_ICONS.chevR;
 $('#score .ico').innerHTML = UI_ICONS.gauge;
 $('#fab').innerHTML = UI_ICONS.plus;
 $('#bb-habits').innerHTML = UI_ICONS.grid;
-$('#bb-today').innerHTML = UI_ICONS.today;
+$('#bb-stats').innerHTML = UI_ICONS.stats;
 document.querySelectorAll('.icon-btn[data-close]').forEach((b) => { b.innerHTML = UI_ICONS.close; });
 
-const goToday = () => selectDate(todayKey());
+const goToday = () => { if (state.view !== 'habits') setView('habits'); selectDate(todayKey()); };
 $('#btn-today').addEventListener('click', goToday);
-$('#bb-today').addEventListener('click', goToday);
-$('#bb-habits').addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+$('#bb-habits').addEventListener('click', () => {
+  if (state.view === 'habits') window.scrollTo({ top: 0, behavior: 'smooth' });
+  else setView('habits');
+});
+$('#bb-stats').addEventListener('click', () => setView('stats'));
 $('#btn-settings').addEventListener('click', () => dlgSettings.showModal());
 $('#fab').addEventListener('click', () => openHabitDialog());
 $('#week-prev').addEventListener('click', () => { state.weekOf = addDays(state.weekOf, -7); guard(refresh); });
@@ -375,4 +381,40 @@ window.addEventListener('resize', () => {
   if (weeksToShow() !== lastWeeks) { lastWeeks = weeksToShow(); guard(refresh); }
 });
 
+// ---------- views ----------
+const stats = createStatsView({
+  api,
+  root: $('#view-stats'),
+  getToday: () => state.today,
+  onPickDate: (date) => { setView('habits'); selectDate(date); },
+});
+
+function applyView() {
+  const isStats = state.view === 'stats';
+  $('#view-habits').hidden = isStats;
+  $('#view-stats').hidden = !isStats;
+  $('#bb-habits').classList.toggle('active', !isStats);
+  $('#bb-stats').classList.toggle('active', isStats);
+  if (isStats) {
+    $('#title .t-main').textContent = 'Stats';
+    $('#title .t-sub').textContent = '';
+    document.title = 'Habit Tracker — Stats';
+  } else {
+    renderTitle();
+    stats.hideTip();
+  }
+}
+
+function setView(v) {
+  if (state.view === v) return;
+  state.view = v;
+  history.replaceState(null, '', v === 'stats' ? '#stats' : location.pathname);
+  applyView();
+  window.scrollTo({ top: 0 });
+  if (v === 'stats') guard(stats.load);
+}
+
+window.addEventListener('hashchange', () => setView(location.hash === '#stats' ? 'stats' : 'habits'));
+
+applyView();
 guard(refresh);
