@@ -45,7 +45,15 @@ async function api(method, url, body) {
   return res.status === 204 ? null : res.json();
 }
 
-const weeksToShow = () => (window.innerWidth >= 760 ? 30 : 23);
+const desktopMQ = window.matchMedia('(min-width: 1000px)');
+const isDesktop = () => desktopMQ.matches;
+// On desktop the heatmap fills the row next to the habit info, so fit as many weeks as there's room for.
+function weeksToShow() {
+  if (!isDesktop()) return window.innerWidth >= 760 ? 30 : 23;
+  const listW = document.querySelector('#list')?.clientWidth || 800;
+  const heatW = listW - 2 * 22 - 300 - 34; // card padding, info column, weekday labels
+  return Math.max(12, Math.min(53, Math.floor((heatW + 4) / 18)));
+}
 
 async function refresh() {
   state.today = todayKey();
@@ -131,6 +139,9 @@ function renderCard(h) {
       HABIT_ICONS[h.icon] || HABIT_ICONS.check),
     el('div', { class: 'h-text' },
       `<p class="h-name">${esc(h.name)}</p><div class="h-streak">${streakText(h)}${h.frequency === 'weekly' ? ` · ${h.target_per_week}×/week` : ''}${h.reminder_time ? ` <span class="h-bell" title="Reminder at ${h.reminder_time}">${UI_ICONS.bell}${h.reminder_time}</span>` : ''}</div>`),
+  );
+  const actions = el('div', { class: 'h-actions' });
+  actions.append(
     el('button', {
       class: `h-btn note${h.hasNote ? ' has' : ''}`, title: h.hasNote ? 'Edit note' : 'Add note',
       'aria-label': `Note for ${h.name}`, onclick: () => openNoteDialog(h),
@@ -141,6 +152,9 @@ function renderCard(h) {
       onclick: () => toggle(h, state.selected, !h.done),
     }, UI_ICONS.check),
   );
+  head.append(actions);
+  const idx = state.habits.indexOf(h);
+  if (idx >= 0 && idx < 9) head.append(el('span', { class: 'h-key', title: `Press ${idx + 1} to toggle` }, String(idx + 1)));
 
   const heat = el('div', { class: 'heat', style: `grid-template-columns: repeat(${h.heatmap.length}, minmax(12px, 1fr))` });
   for (const col of h.heatmap) {
@@ -160,7 +174,24 @@ function renderCard(h) {
       }));
     }
   }
-  card.append(head, heat);
+  // Month labels (desktop): show the month name above the first week that starts in it.
+  const months = el('div', { class: 'heat-months', style: heat.style.cssText });
+  let lastMonth = '';
+  let lastLabelAt = -9;
+  h.heatmap.forEach((col, i) => {
+    const m = col[0].date.slice(5, 7);
+    // Label a month at its first week, unless the previous label is too close to fit.
+    const show = m !== lastMonth && i - lastLabelAt >= 3;
+    lastMonth = m;
+    if (show) lastLabelAt = i;
+    months.append(el('span', {}, show ? MONTHS[Number(m) - 1] : ''));
+  });
+  const wd = el('div', { class: 'heat-days' }, '<span>Mon</span><span></span><span>Wed</span><span></span><span>Fri</span><span></span><span></span>');
+  const wrap = el('div', { class: 'heat-wrap' });
+  const inner = el('div', { class: 'heat-inner' });
+  inner.append(months, heat);
+  wrap.append(wd, inner);
+  card.append(head, wrap);
   return card;
 }
 
@@ -179,11 +210,56 @@ function renderList() {
   }
 }
 
+function renderDayPanel() {
+  const p = $('#daypanel');
+  if (!p) return;
+  const total = state.habits.length;
+  const done = state.habits.filter((h) => h.done).length;
+  const ratio = total ? done / total : 0;
+  const r = 52, c = 2 * Math.PI * r;
+  const d = fromKey(state.selected);
+  const isToday = state.selected === state.today;
+  const notes = state.habits.filter((h) => h.noteText);
+  p.innerHTML = `
+    <div class="dp-card">
+      <div class="dp-date">${isToday ? 'Today' : LONG_DAYS[d.getDay()]}<span>${prettyDate(state.selected)} ${d.getFullYear()}</span></div>
+      <div class="dp-ring">
+        <svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="${r}" class="track" stroke-width="10" fill="none"/>
+          <circle cx="60" cy="60" r="${r}" class="bar" stroke-width="10" fill="none" stroke-linecap="round"
+            stroke-dasharray="${c}" stroke-dashoffset="${c * (1 - ratio)}" ${ratio === 0 ? 'opacity="0"' : ''}/></svg>
+        <div class="dp-ring-txt"><b>${Math.round(ratio * 100)}%</b><span>${done} of ${total} done</span></div>
+      </div>
+    </div>
+    <div class="dp-card">
+      <h3>Checklist</h3>
+      <div class="dp-list"></div>
+    </div>
+    <div class="dp-card">
+      <h3>Notes</h3>
+      <div class="dp-notes">${notes.length ? '' : '<p class="muted small">No notes for this day. Use the note button on a habit to add one.</p>'}</div>
+    </div>`;
+  const list = p.querySelector('.dp-list');
+  if (!total) list.innerHTML = '<p class="muted small">No habits yet.</p>';
+  state.habits.forEach((h) => {
+    const row = el('button', {
+      class: `dp-item${h.done ? ' done' : ''}`, style: `--c:${h.color}`,
+      'aria-pressed': h.done ? 'true' : 'false', onclick: () => toggle(h, state.selected, !h.done),
+    }, `<span class="dp-box">${UI_ICONS.check}</span><span class="dp-name">${esc(h.name)}</span>${h.due && !h.done ? '<span class="dp-due">due</span>' : ''}`);
+    list.append(row);
+  });
+  const nl = p.querySelector('.dp-notes');
+  notes.forEach((h) => {
+    nl.append(el('button', { class: 'dp-note', style: `--c:${h.color}`, onclick: () => openNoteDialog(h) },
+      `<b>${esc(h.name)}</b><span>${esc(h.noteText)}</span>`));
+  });
+}
+
 function render() {
   if (state.view === 'habits') renderTitle();
   renderWeek();
   renderToolbar();
   renderList();
+  renderDayPanel();
 }
 
 // ---------- actions ----------
@@ -371,6 +447,11 @@ $('#score .ico').innerHTML = UI_ICONS.gauge;
 $('#fab').innerHTML = UI_ICONS.plus;
 $('#bb-habits').innerHTML = UI_ICONS.grid;
 $('#bb-stats').innerHTML = UI_ICONS.stats;
+$('#nav-habits .si').innerHTML = UI_ICONS.grid;
+$('#nav-stats .si').innerHTML = UI_ICONS.stats;
+$('#nav-new .si').innerHTML = UI_ICONS.plus;
+$('#nav-settings .si').innerHTML = UI_ICONS.gear;
+$('.brand-logo').innerHTML = UI_ICONS.check;
 document.querySelectorAll('.icon-btn[data-close]').forEach((b) => { b.innerHTML = UI_ICONS.close; });
 
 const goToday = () => { if (state.view !== 'habits') setView('habits'); selectDate(todayKey()); };
@@ -380,6 +461,10 @@ $('#bb-habits').addEventListener('click', () => {
   else setView('habits');
 });
 $('#bb-stats').addEventListener('click', () => setView('stats'));
+$('#nav-habits').addEventListener('click', () => setView('habits'));
+$('#nav-stats').addEventListener('click', () => setView('stats'));
+$('#nav-new').addEventListener('click', () => openHabitDialog());
+$('#nav-settings').addEventListener('click', () => { updatePushUI(); dlgSettings.showModal(); });
 $('#btn-settings').addEventListener('click', () => { updatePushUI(); dlgSettings.showModal(); });
 $('#fab').addEventListener('click', () => openHabitDialog());
 $('#week-prev').addEventListener('click', () => { state.weekOf = addDays(state.weekOf, -7); guard(refresh); });
@@ -402,8 +487,30 @@ document.addEventListener('visibilitychange', () => {
   guard(refresh);
 });
 let lastWeeks = weeksToShow();
+let resizeT;
 window.addEventListener('resize', () => {
-  if (weeksToShow() !== lastWeeks) { lastWeeks = weeksToShow(); guard(refresh); }
+  clearTimeout(resizeT);
+  resizeT = setTimeout(() => {
+    if (weeksToShow() !== lastWeeks) { lastWeeks = weeksToShow(); guard(refresh); }
+  }, 200);
+});
+
+// ---------- keyboard shortcuts ----------
+document.addEventListener('keydown', (e) => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.target.closest('input, textarea, select, [contenteditable]') || document.querySelector('dialog[open]')) return;
+  const k = e.key;
+  if (k === 'n' || k === 'N') { e.preventDefault(); openHabitDialog(); }
+  else if (k === 't' || k === 'T') { goToday(); }
+  else if (k === 's' || k === 'S') { setView(state.view === 'stats' ? 'habits' : 'stats'); }
+  else if (state.view === 'habits' && k === 'ArrowLeft') { e.preventDefault(); selectDate(addDays(state.selected, -1)); }
+  else if (state.view === 'habits' && k === 'ArrowRight') {
+    e.preventDefault();
+    if (state.selected < state.today) selectDate(addDays(state.selected, 1));
+  } else if (state.view === 'habits' && /^[1-9]$/.test(k)) {
+    const h = state.habits[Number(k) - 1];
+    if (h) toggle(h, state.selected, !h.done);
+  }
 });
 
 // ---------- PWA: service worker, install, push ----------
@@ -524,6 +631,9 @@ function applyView() {
   $('#view-stats').hidden = !isStats;
   $('#bb-habits').classList.toggle('active', !isStats);
   $('#bb-stats').classList.toggle('active', isStats);
+  $('#nav-habits').classList.toggle('active', !isStats);
+  $('#nav-stats').classList.toggle('active', isStats);
+  document.body.classList.toggle('view-stats', isStats);
   if (isStats) {
     $('#title .t-main').textContent = 'Stats';
     $('#title .t-sub').textContent = '';

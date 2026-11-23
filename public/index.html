@@ -12,6 +12,25 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <div class="shell">
+  <aside class="sidebar" aria-label="Main navigation">
+    <div class="brand"><span class="brand-logo"></span><span>Habit Tracker</span></div>
+    <nav class="side-nav">
+      <button class="side-btn active" id="nav-habits"><span class="si"></span>Habits</button>
+      <button class="side-btn" id="nav-stats"><span class="si"></span>Stats</button>
+    </nav>
+    <button class="btn primary side-new" id="nav-new"><span class="si"></span>New habit</button>
+    <div class="side-foot">
+      <button class="side-btn" id="nav-settings"><span class="si"></span>Settings</button>
+      <div class="kbd-hint">
+        <div><kbd>N</kbd> new habit</div>
+        <div><kbd>←</kbd><kbd>→</kbd> change day</div>
+        <div><kbd>T</kbd> today · <kbd>S</kbd> stats</div>
+        <div><kbd>1</kbd>–<kbd>9</kbd> toggle habit</div>
+      </div>
+    </div>
+  </aside>
+
   <div class="app">
     <header class="topbar">
       <h1 id="title"><span class="t-main">Today,</span> <span class="t-sub"></span></h1>
@@ -50,6 +69,9 @@
     </div>
 
     <div id="view-stats" class="stats" hidden></div>
+  </div>
+
+  <aside class="daypanel" id="daypanel" aria-label="Selected day"></aside>
   </div>
 
   <nav class="bottombar">

@@ -291,3 +291,161 @@ textarea { resize: vertical; min-height: 140px; }
 .h-bell svg { width: 13px; height: 13px; }
 .set-h { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 14px 0 8px; font-weight: 600; }
 .set-h:first-child { margin-top: 0; }
+
+/* ======================================================================
+   Desktop layout (≥1000px): sidebar · main · day panel
+   Mobile layout above is untouched; these elements are hidden there.
+   ====================================================================== */
+.sidebar, .daypanel, .heat-days, .heat-months, .h-key { display: none; }
+.h-actions { display: flex; gap: 14px; flex: none; }
+
+@media (min-width: 1000px) {
+  body { overflow-y: scroll; }
+  .shell {
+    display: grid;
+    grid-template-columns: 228px minmax(0, 1fr);
+    min-height: 100vh;
+  }
+  .bottombar { display: none; }
+  #btn-settings { display: none; }
+
+  /* ---- sidebar ---- */
+  .sidebar {
+    display: flex; flex-direction: column; gap: 6px;
+    position: sticky; top: 0; height: 100vh;
+    padding: 26px 16px 20px; border-right: 1px solid #1a1a1a; background: #050505;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 17px; padding: 0 8px 22px; }
+  .brand-logo { width: 30px; height: 30px; border-radius: 9px; background: var(--accent); color: #111; padding: 6px; }
+  .brand-logo svg { stroke-width: 3; }
+  .side-nav { display: flex; flex-direction: column; gap: 4px; }
+  .side-btn {
+    display: flex; align-items: center; gap: 12px; width: 100%;
+    border: 0; background: none; color: var(--muted); font-size: 15px; font-weight: 500;
+    padding: 10px 12px; border-radius: 12px; text-align: left;
+  }
+  .side-btn:hover { background: #141414; color: var(--text); }
+  .side-btn.active { background: #1a1a1a; color: var(--text); }
+  .side-btn.active .si { color: var(--accent); }
+  .si { width: 20px; height: 20px; flex: none; }
+  .side-new { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 14px; padding: 11px 14px; }
+  .side-new .si { width: 18px; height: 18px; }
+  .side-new .si svg { stroke-width: 2.6; }
+  .side-foot { margin-top: auto; display: flex; flex-direction: column; gap: 14px; }
+  .kbd-hint { color: #5d5d5d; font-size: 12px; line-height: 2; padding: 0 12px; }
+  kbd {
+    display: inline-block; min-width: 18px; padding: 0 5px; margin-right: 3px; text-align: center;
+    border: 1px solid #2c2c2c; border-bottom-width: 2px; border-radius: 5px; font: 11px/16px inherit; color: #9a9a9a;
+  }
+
+  /* ---- main column ---- */
+  .app { max-width: 1320px; width: 100%; margin: 0 auto; padding: 30px 36px 48px; }
+  .topbar h1 { font-size: 30px; }
+  .week {
+    margin: 22px 0 18px; padding: 16px 18px; background: var(--card); border-radius: var(--radius);
+  }
+  .week-days { gap: 10px; }
+  .ring { width: 54px; }
+  .day { padding: 6px 0; border-radius: 14px; transition: background .15s; }
+  .day:hover:not(.future) { background: #1b1b1b; }
+  .toolbar { margin-bottom: 18px; align-items: center; }
+  .toolbar .label { display: none; }
+  .seg button { padding: 8px 16px; font-size: 15px; }
+  .score { font-size: 17px; padding: 7px 16px; }
+  .score-wrap { display: flex; align-items: center; gap: 12px; }
+  .score-wrap .label { display: block; margin: 0; }
+
+  /* ---- habit rows: info column + wide heatmap ---- */
+  .list { gap: 14px; }
+  .list > .card {
+    display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 0 24px; align-items: center;
+    padding: 20px 22px; position: relative; transition: background .15s;
+  }
+  .list > .card:hover { background: #171717; }
+  .card-head {
+    display: grid; grid-template-columns: 48px minmax(0, 1fr); grid-template-areas: "icon text" "act act";
+    gap: 14px; margin: 0; align-self: stretch; align-content: center;
+  }
+  .h-icon { grid-area: icon; }
+  .h-text { grid-area: text; align-self: center; }
+  .h-name { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .h-actions { grid-area: act; gap: 10px; }
+  .h-btn { width: 42px; height: 42px; padding: 10px; }
+  .h-key {
+    display: block; position: absolute; top: 12px; right: 14px;
+    font-size: 11px; color: #4a4a4a; border: 1px solid #2a2a2a; border-radius: 5px; padding: 0 5px; line-height: 16px;
+  }
+  .card:hover .h-key { color: #8a8a8a; }
+
+  .heat-wrap { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 4px; }
+  .heat-inner { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .heat-months { display: grid; height: 14px; gap: 4px; }
+  .heat-months span { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: visible; line-height: 14px; }
+  .heat-days {
+    display: grid; grid-template-rows: repeat(7, 1fr); gap: 4px; padding-top: 20px;
+    font-size: 10px; color: #6a6a6a;
+  }
+  .heat-days span { display: flex; align-items: center; }
+  .heat { overflow: visible; }
+  .cell { min-width: 0; border-radius: 3px; }
+
+  .empty { background: var(--card); border-radius: var(--radius); }
+
+  /* ---- day panel ---- */
+  .daypanel { display: none; }
+
+  /* ---- stats view uses the full main column ---- */
+  body.view-stats .app { max-width: 1320px; }
+  .cal { gap: 8px; }
+  .cal-d { aspect-ratio: auto; height: 44px; }
+  .chart svg { max-height: 230px; }
+  .stat-card { display: flex; flex-direction: column; }
+  .stat-card .chart { flex: 1; display: flex; align-items: center; }
+}
+
+@media (min-width: 1360px) {
+  .shell { grid-template-columns: 228px minmax(0, 1fr) 320px; }
+  body.view-stats .shell { grid-template-columns: 228px minmax(0, 1fr); }
+  body.view-stats .daypanel { display: none; }
+  .daypanel {
+    display: flex; flex-direction: column; gap: 14px;
+    position: sticky; top: 0; height: 100vh; overflow-y: auto;
+    padding: 30px 22px 24px 0;
+  }
+  .dp-card { background: var(--card); border-radius: var(--radius); padding: 18px; }
+  .dp-card h3 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
+  .dp-date { font-size: 20px; font-weight: 700; display: flex; flex-direction: column; }
+  .dp-date span { font-size: 14px; color: var(--muted); font-weight: 400; margin-top: 2px; }
+  .dp-ring { position: relative; width: 168px; margin: 16px auto 4px; }
+  .dp-ring svg { transform: rotate(-90deg); }
+  .dp-ring .track { stroke: #2a2610; }
+  .dp-ring .bar { stroke: var(--accent); transition: stroke-dashoffset .4s ease; }
+  .dp-ring-txt { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .dp-ring-txt b { font-size: 34px; font-variant-numeric: tabular-nums; }
+  .dp-ring-txt span { font-size: 13px; color: var(--muted); }
+  .dp-list { display: flex; flex-direction: column; gap: 2px; }
+  .dp-item {
+    --c: var(--accent);
+    display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+    border: 0; background: none; padding: 9px 8px; border-radius: 10px; font-size: 15px;
+  }
+  .dp-item:hover { background: #1c1c1c; }
+  .dp-box {
+    width: 22px; height: 22px; border-radius: 7px; border: 2px solid color-mix(in srgb, var(--c) 60%, #333);
+    color: transparent; padding: 2px; flex: none;
+  }
+  .dp-box svg { stroke-width: 3.2; }
+  .dp-item.done .dp-box { background: var(--c); border-color: var(--c); color: #111; }
+  .dp-item.done .dp-name { color: var(--muted); text-decoration: line-through; text-decoration-color: #555; }
+  .dp-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dp-due { font-size: 11px; color: var(--c); border: 1px solid color-mix(in srgb, var(--c) 40%, transparent); border-radius: 6px; padding: 0 6px; }
+  .dp-notes { display: flex; flex-direction: column; gap: 8px; }
+  .dp-note {
+    --c: var(--accent);
+    display: flex; flex-direction: column; gap: 4px; text-align: left; width: 100%;
+    border: 0; border-left: 3px solid var(--c); background: #1a1a1a; border-radius: 10px; padding: 10px 12px;
+  }
+  .dp-note b { font-size: 13px; }
+  .dp-note span { font-size: 14px; color: #cfcfcf; white-space: pre-wrap; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+  .dp-note:hover { background: #202020; }
+}

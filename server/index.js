@@ -95,6 +95,7 @@ function createApp(db, push = null) {
         done: doneSet.has(date),
         due: S.isDue(habit, doneSet, date),
         hasNote: notes.has(date),
+        noteText: notes.has(date) ? q.getNote.get(habit.id, date).text : '',
         streak,
         streakUnit: unit,
         heatmap: S.buildHeatmap(doneSet, date > today ? date : today, today, habit.created_at.slice(0, 10), weeks)
