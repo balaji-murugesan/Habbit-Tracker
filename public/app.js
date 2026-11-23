@@ -130,7 +130,7 @@ function renderCard(h) {
     el('button', { class: 'h-icon', title: 'Edit habit', 'aria-label': `Edit ${h.name}`, onclick: () => openHabitDialog(h) },
       HABIT_ICONS[h.icon] || HABIT_ICONS.check),
     el('div', { class: 'h-text' },
-      `<p class="h-name">${esc(h.name)}</p><div class="h-streak">${streakText(h)}${h.frequency === 'weekly' ? ` · ${h.target_per_week}×/week` : ''}</div>`),
+      `<p class="h-name">${esc(h.name)}</p><div class="h-streak">${streakText(h)}${h.frequency === 'weekly' ? ` · ${h.target_per_week}×/week` : ''}${h.reminder_time ? ` <span class="h-bell" title="Reminder at ${h.reminder_time}">${UI_ICONS.bell}${h.reminder_time}</span>` : ''}</div>`),
     el('button', {
       class: `h-btn note${h.hasNote ? ' has' : ''}`, title: h.hasNote ? 'Edit note' : 'Add note',
       'aria-label': `Note for ${h.name}`, onclick: () => openNoteDialog(h),
@@ -250,13 +250,36 @@ function openHabitDialog(h = null) {
   formHabit.target_per_week.value = h?.target_per_week || 3;
   pick = { icon: h?.icon || 'check', color: h?.color || COLORS[state.habits.length % COLORS.length] };
   $('#btn-delete').hidden = !h;
+  formHabit.reminder_on.checked = !!h?.reminder_time;
+  formHabit.reminder_time.value = h?.reminder_time || '20:00';
+  pickDays = (h?.reminder_days || '1111111').split('');
   renderPickers();
+  renderDayChips();
   syncTargetField();
+  syncReminder();
   dlgHabit.showModal();
   formHabit.name.focus();
 }
 
 formHabit.frequency.addEventListener('change', syncTargetField);
+
+let pickDays = '1111111'.split('');
+function renderDayChips() {
+  const wrap = $('#day-chips');
+  wrap.innerHTML = '';
+  DAYS.forEach((d, i) => {
+    wrap.append(el('button', {
+      type: 'button', class: pickDays[i] === '1' ? 'sel' : '', 'aria-pressed': pickDays[i] === '1' ? 'true' : 'false',
+      onclick: () => { pickDays[i] = pickDays[i] === '1' ? '0' : '1'; renderDayChips(); },
+    }, d[0]));
+  });
+}
+function syncReminder() {
+  const on = formHabit.reminder_on.checked;
+  $('#reminder-opts').hidden = !on;
+  $('#reminder-hint').hidden = !on || pushState.subscribed;
+}
+formHabit.reminder_on.addEventListener('change', syncReminder);
 
 formHabit.addEventListener('submit', (e) => {
   e.preventDefault();
@@ -266,6 +289,8 @@ formHabit.addEventListener('submit', (e) => {
     target_per_week: Number(formHabit.target_per_week.value),
     icon: pick.icon,
     color: pick.color,
+    reminder_time: formHabit.reminder_on.checked ? formHabit.reminder_time.value : null,
+    reminder_days: pickDays.join(''),
   };
   guard(async () => {
     if (state.editing) await api('PUT', `api/habits/${state.editing.id}`, body);
@@ -355,7 +380,7 @@ $('#bb-habits').addEventListener('click', () => {
   else setView('habits');
 });
 $('#bb-stats').addEventListener('click', () => setView('stats'));
-$('#btn-settings').addEventListener('click', () => dlgSettings.showModal());
+$('#btn-settings').addEventListener('click', () => { updatePushUI(); dlgSettings.showModal(); });
 $('#fab').addEventListener('click', () => openHabitDialog());
 $('#week-prev').addEventListener('click', () => { state.weekOf = addDays(state.weekOf, -7); guard(refresh); });
 $('#week-next').addEventListener('click', () => {
@@ -380,6 +405,110 @@ let lastWeeks = weeksToShow();
 window.addEventListener('resize', () => {
   if (weeksToShow() !== lastWeeks) { lastWeeks = weeksToShow(); guard(refresh); }
 });
+
+// ---------- PWA: service worker, install, push ----------
+const pushState = { supported: false, subscribed: false, reg: null };
+
+function urlB64ToUint8(b64) {
+  const pad = '='.repeat((4 - (b64.length % 4)) % 4);
+  const raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
+  return Uint8Array.from(raw, (c) => c.charCodeAt(0));
+}
+
+async function initPwa() {
+  if (!('serviceWorker' in navigator) || !window.isSecureContext) {
+    updatePushUI();
+    return;
+  }
+  try {
+    pushState.reg = await navigator.serviceWorker.register('sw.js');
+    pushState.supported = 'PushManager' in window && 'Notification' in window;
+    if (pushState.supported) {
+      const sub = await pushState.reg.pushManager.getSubscription();
+      pushState.subscribed = !!sub && Notification.permission === 'granted';
+      if (sub && pushState.subscribed) api('POST', 'api/push/subscribe', sub.toJSON()).catch(() => {}); // re-sync after DB reset
+    }
+  } catch (e) {
+    console.warn('service worker failed', e);
+  }
+  updatePushUI();
+}
+
+function updatePushUI() {
+  const status = $('#push-status');
+  const btn = $('#btn-push');
+  const test = $('#btn-push-test');
+  if (!window.isSecureContext) {
+    status.textContent = 'Notifications and install need https or http://localhost. Open the app via localhost on this computer.';
+    btn.hidden = true; test.hidden = true;
+    return;
+  }
+  if (!pushState.supported) {
+    status.textContent = 'This browser does not support push notifications.';
+    btn.hidden = true; test.hidden = true;
+    return;
+  }
+  btn.hidden = false;
+  if (Notification.permission === 'denied') {
+    status.textContent = 'Notifications are blocked for this site. Allow them in your browser settings.';
+    btn.hidden = true; test.hidden = true;
+  } else if (pushState.subscribed) {
+    status.textContent = 'On for this device. Habits with a reminder will notify you while Docker is running.';
+    btn.textContent = 'Turn off notifications on this device';
+    test.hidden = false;
+  } else {
+    status.textContent = 'Off for this device.';
+    btn.textContent = 'Enable notifications on this device';
+    test.hidden = true;
+  }
+}
+
+$('#btn-push').addEventListener('click', () => guard(async () => {
+  const reg = pushState.reg || await navigator.serviceWorker.ready;
+  if (pushState.subscribed) {
+    const sub = await reg.pushManager.getSubscription();
+    if (sub) {
+      await api('DELETE', 'api/push/subscribe', { endpoint: sub.endpoint });
+      await sub.unsubscribe();
+    }
+    pushState.subscribed = false;
+    updatePushUI();
+    toast('Notifications off');
+    return;
+  }
+  const perm = await Notification.requestPermission();
+  if (perm !== 'granted') { updatePushUI(); throw new Error('Notification permission not granted'); }
+  const { publicKey } = await api('GET', 'api/push/key');
+  const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64ToUint8(publicKey) });
+  await api('POST', 'api/push/subscribe', sub.toJSON());
+  pushState.subscribed = true;
+  updatePushUI();
+  toast('Notifications on');
+}));
+
+$('#btn-push-test').addEventListener('click', () => guard(async () => {
+  const { sent } = await api('POST', 'api/push/test');
+  toast(sent ? 'Test notification sent' : 'No device received it');
+}));
+
+let deferredInstall = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstall = e;
+  $('#btn-install').hidden = false;
+  $('#install-h').hidden = false;
+});
+$('#btn-install').addEventListener('click', async () => {
+  if (!deferredInstall) return;
+  deferredInstall.prompt();
+  await deferredInstall.userChoice;
+  deferredInstall = null;
+  $('#btn-install').hidden = true;
+  $('#install-h').hidden = true;
+});
+window.addEventListener('appinstalled', () => { $('#btn-install').hidden = true; $('#install-h').hidden = true; toast('Installed'); });
+
+initPwa();
 
 // ---------- views ----------
 const stats = createStatsView({

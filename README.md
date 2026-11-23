@@ -8,6 +8,9 @@ A self-hosted habit tracker with a dark UI, built to run on **Docker Desktop**.
 - 🟩 GitHub-style heatmap per habit: click any square to toggle that day
 - 📝 A note per habit per day (journal)
 - 🔎 Filter between **All** and **Due**
+- 📊 **Stats** tab: monthly calendar, best/current streaks, 30-day rates, check-ins by weekday and over the last 12 weeks
+- 🔔 **Reminders** via push notifications at a time and on days you choose for each habit
+- 📲 **Installable** as an app (PWA), with the app shell cached for offline use
 - 💾 SQLite storage on a Docker volume, plus JSON export/import
 
 ## Run with Docker Desktop
@@ -34,6 +37,25 @@ In Docker Desktop you'll see the `habit-tracker` container under **Containers** 
 
 **Backups:** Settings (⚙) → *Export backup* downloads a JSON file, and *Import backup* restores one.
 
+## Reminders and installing as an app
+
+1. **Set your time zone** in `docker-compose.yml` (`TZ=`, e.g. `Asia/Kolkata`; the default is `UTC`), then
+   run `docker compose up -d` again. Reminder times use this zone.
+2. Open **http://localhost:8080** (use `localhost`: browsers only allow notifications and install on
+   `https` or `localhost`).
+3. Settings ⚙ → **Enable notifications on this device** → allow. Use **Send test notification** to check.
+4. Edit a habit (tap its icon) → turn on **Daily reminder** → pick a time and days.
+
+A reminder fires once a day at or after its time, only if the habit is still due, and only while the
+container is running. If a habit is already done, no reminder is sent.
+
+To **install**, use the install icon in Chrome/Edge's address bar, or Settings ⚙ → *Install as app*.
+It then opens in its own window like a desktop app.
+
+> Opening the app from your phone via your computer's LAN IP (`http://192.168.x.x:8080`) works for
+> tracking, but phones block notifications and install over plain `http`. For that you'd need HTTPS,
+> e.g. a reverse proxy such as Caddy or a Tailscale/Cloudflare tunnel.
+
 ## Run without Docker (development)
 
 Requires Node.js 20+.
@@ -58,7 +80,8 @@ npm test         # unit tests for streak / score logic
 ```
 server/index.js   Express API + static file server
 server/db.js      SQLite schema
-server/stats.js   streak / score / heatmap logic
-public/           vanilla HTML/CSS/JS frontend (no build step)
+server/stats.js   streak / score / heatmap / insights logic
+server/reminders.js  web-push + reminder scheduler
+public/           vanilla HTML/CSS/JS frontend (no build step), service worker, manifest
 test/             node:test unit tests
 ```

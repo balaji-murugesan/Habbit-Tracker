@@ -4,6 +4,7 @@ const path = require('path');
 const express = require('express');
 const { openDb } = require('./db');
 const S = require('./stats');
+const R = require('./reminders');
 
 const ICONS = new Set([
   'check', 'run', 'walk', 'book', 'chart', 'dumbbell', 'water', 'brain', 'code',
@@ -17,7 +18,7 @@ function localToday() {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
-function createApp(db) {
+function createApp(db, push = null) {
   const app = express();
   app.use(express.json({ limit: '2mb' }));
 
@@ -26,10 +27,10 @@ function createApp(db) {
     habit: db.prepare('SELECT * FROM habits WHERE id = ?'),
     completionsFor: db.prepare('SELECT date FROM completions WHERE habit_id = ?'),
     notesFor: db.prepare('SELECT date FROM notes WHERE habit_id = ?'),
-    insertHabit: db.prepare(`INSERT INTO habits (name, icon, color, frequency, target_per_week, sort_order, created_at)
-      VALUES (@name, @icon, @color, @frequency, @target_per_week, @sort_order, @created_at)`),
+    insertHabit: db.prepare(`INSERT INTO habits (name, icon, color, frequency, target_per_week, reminder_time, reminder_days, sort_order, created_at)
+      VALUES (@name, @icon, @color, @frequency, @target_per_week, @reminder_time, @reminder_days, @sort_order, @created_at)`),
     updateHabit: db.prepare(`UPDATE habits SET name=@name, icon=@icon, color=@color, frequency=@frequency,
-      target_per_week=@target_per_week WHERE id=@id`),
+      target_per_week=@target_per_week, reminder_time=@reminder_time, reminder_days=@reminder_days WHERE id=@id`),
     deleteHabit: db.prepare('DELETE FROM habits WHERE id = ?'),
     maxOrder: db.prepare('SELECT COALESCE(MAX(sort_order), 0) AS m FROM habits'),
     addCompletion: db.prepare('INSERT OR IGNORE INTO completions (habit_id, date) VALUES (?, ?)'),
@@ -59,7 +60,11 @@ function createApp(db) {
     let target = parseInt(merged.target_per_week, 10);
     if (!Number.isFinite(target) || target < 1) target = 1;
     if (target > 7) target = 7;
-    return { value: { name, icon, color, frequency, target_per_week: target } };
+    const reminder_time = typeof merged.reminder_time === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(merged.reminder_time)
+      ? merged.reminder_time : null;
+    const reminder_days = typeof merged.reminder_days === 'string' && /^[01]{7}$/.test(merged.reminder_days)
+      ? merged.reminder_days : '1111111';
+    return { value: { name, icon, color, frequency, target_per_week: target, reminder_time, reminder_days } };
   }
 
   function getHabitOr404(req, res) {
@@ -230,6 +235,42 @@ function createApp(db) {
     res.json({ date: req.params.date, text: text.trim() ? text : '' });
   });
 
+  // Web Push
+  const pushQ = {
+    upsert: db.prepare(`INSERT INTO push_subscriptions (endpoint, keys_json, created_at) VALUES (?, ?, ?)
+      ON CONFLICT(endpoint) DO UPDATE SET keys_json = excluded.keys_json`),
+    del: db.prepare('DELETE FROM push_subscriptions WHERE endpoint = ?'),
+    count: db.prepare('SELECT COUNT(*) AS n FROM push_subscriptions'),
+  };
+
+  app.get('/api/push/key', (_req, res) => {
+    if (!push) return res.status(503).json({ error: 'push disabled' });
+    res.json({ publicKey: push.publicKey, subscriptions: pushQ.count.get().n });
+  });
+
+  app.post('/api/push/subscribe', (req, res) => {
+    if (!push) return res.status(503).json({ error: 'push disabled' });
+    const sub = req.body || {};
+    let url;
+    try { url = new URL(sub.endpoint); } catch { return bad(res, 'invalid subscription'); }
+    if (url.protocol !== 'https:' || typeof sub.keys?.p256dh !== 'string' || typeof sub.keys?.auth !== 'string') {
+      return bad(res, 'invalid subscription');
+    }
+    pushQ.upsert.run(sub.endpoint, JSON.stringify({ p256dh: sub.keys.p256dh, auth: sub.keys.auth }), new Date().toISOString());
+    res.status(201).json({ ok: true });
+  });
+
+  app.delete('/api/push/subscribe', (req, res) => {
+    if (typeof req.body?.endpoint === 'string') pushQ.del.run(req.body.endpoint);
+    res.json({ ok: true });
+  });
+
+  app.post('/api/push/test', async (_req, res) => {
+    if (!push) return res.status(503).json({ error: 'push disabled' });
+    const sent = await push.sendAll({ title: 'Habit Tracker', body: 'Notifications are working 🎉', tag: 'test', url: './' });
+    res.json({ sent });
+  });
+
   // Backup / restore
   app.get('/api/export', (_req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename="habits-${localToday()}.json"`);
@@ -249,8 +290,8 @@ function createApp(db) {
     }
     const tx = db.transaction(() => {
       db.exec('DELETE FROM notes; DELETE FROM completions; DELETE FROM habits;');
-      const ins = db.prepare(`INSERT INTO habits (id, name, icon, color, frequency, target_per_week, archived, sort_order, created_at)
-        VALUES (@id, @name, @icon, @color, @frequency, @target_per_week, @archived, @sort_order, @created_at)`);
+      const ins = db.prepare(`INSERT INTO habits (id, name, icon, color, frequency, target_per_week, reminder_time, reminder_days, archived, sort_order, created_at)
+        VALUES (@id, @name, @icon, @color, @frequency, @target_per_week, @reminder_time, @reminder_days, @archived, @sort_order, @created_at)`);
       for (const h of data.habits) {
         const { error, value } = validateHabitBody(h);
         if (error) throw new Error(`invalid habit: ${error}`);
@@ -285,10 +326,13 @@ function createApp(db) {
 if (require.main === module) {
   const db = openDb();
   const port = parseInt(process.env.PORT, 10) || 3000;
-  const server = createApp(db).listen(port, () => {
+  const push = { publicKey: R.ensureVapid(db), ...R.createPush(db) };
+  const scheduler = R.startScheduler(db, push);
+  const server = createApp(db, push).listen(port, () => {
     console.log(`Habit Tracker listening on http://0.0.0.0:${port}`);
   });
   const shutdown = () => {
+    scheduler.stop();
     server.close(() => {
       db.close();
       process.exit(0);

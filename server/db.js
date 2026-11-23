@@ -35,7 +35,26 @@ function openDb(dbPath = process.env.DB_PATH || path.join(__dirname, '..', 'data
       text TEXT NOT NULL,
       PRIMARY KEY (habit_id, date)
     );
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS push_subscriptions (
+      endpoint TEXT PRIMARY KEY,
+      keys_json TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS reminder_log (
+      habit_id INTEGER NOT NULL REFERENCES habits(id) ON DELETE CASCADE,
+      date TEXT NOT NULL,
+      PRIMARY KEY (habit_id, date)
+    );
   `);
+
+  // Migrations for databases created by earlier versions.
+  const cols = new Set(db.prepare('PRAGMA table_info(habits)').all().map((c) => c.name));
+  if (!cols.has('reminder_time')) db.exec('ALTER TABLE habits ADD COLUMN reminder_time TEXT');
+  if (!cols.has('reminder_days')) db.exec("ALTER TABLE habits ADD COLUMN reminder_days TEXT NOT NULL DEFAULT '1111111'");
 
   return db;
 }

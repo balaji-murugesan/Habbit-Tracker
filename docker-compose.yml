@@ -6,6 +6,8 @@ services:
     ports:
       - "8080:3000"
     environment:
+      # Your time zone, used for reminder times, e.g. Asia/Kolkata, Europe/London, America/New_York.
+      # Override without editing this file:  TZ=Asia/Kolkata docker compose up -d
       - TZ=${TZ:-UTC}
     volumes:
       - habit-data:/data
