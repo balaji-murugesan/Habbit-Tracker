@@ -34,20 +34,21 @@ export function apiBase() {
 }
 
 async function testServer(url) {
-  const ctl = new AbortController();
-  const t = setTimeout(() => ctl.abort(), 6000);
-  try {
-    const res = await fetch(`${url}/healthz`, { signal: ctl.signal });
+  // A plain timeout race: native HTTP (CapacitorHttp) ignores AbortController.
+  const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('No answer within 8 seconds')), 8000));
+  const attempt = (async () => {
+    let res;
+    try {
+      res = await fetch(`${url}/healthz`);
+    } catch (e) {
+      throw new Error(`Could not connect (${e && e.message ? e.message : 'network error'})`);
+    }
     if (!res.ok) throw new Error(`Server answered ${res.status}`);
-    const body = await res.json();
-    if (!body.ok) throw new Error('Not a Habit Tracker server');
-  } catch (e) {
-    if (e.name === 'AbortError') throw new Error('No answer within 6 seconds');
-    if (e instanceof TypeError) throw new Error('Could not connect');
-    throw e;
-  } finally {
-    clearTimeout(t);
-  }
+    let body;
+    try { body = await res.json(); } catch { throw new Error('That address answered, but it is not the Habit Tracker'); }
+    if (!body.ok) throw new Error('That address answered, but it is not the Habit Tracker');
+  })();
+  return Promise.race([attempt, timeout]);
 }
 
 /**
