@@ -1,0 +1,71 @@
+name: Android APK
+
+on:
+  push:
+    paths:
+      - 'public/**'
+      - 'android-app/**'
+      - '.github/workflows/android.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android-app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: android-app/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install and sync web UI into the Android project
+        run: |
+          npm ci
+          npm run sync
+
+      - name: Build signed APK
+        working-directory: android-app/android
+        env:
+          APP_VERSION_CODE: ${{ github.run_number }}
+          APP_VERSION_NAME: 1.0.${{ github.run_number }}
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon --stacktrace
+          cp app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/habit-tracker.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: habit-tracker-apk
+          path: habit-tracker.apk
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-v1.0.${{ github.run_number }}
+          name: Android app 1.0.${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          make_latest: true
+          files: habit-tracker.apk
+          body: |
+            Install on Android: download **habit-tracker.apk** on your phone, open it, and allow installing from this source.
+            Built from ${{ github.sha }} on `${{ github.ref_name }}`.

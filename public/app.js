@@ -1,5 +1,6 @@
 import { HABIT_ICONS, UI_ICONS, COLORS } from './icons.js';
 import { createStatsView } from './stats.js';
+import * as Native from './native.js';
 
 // ---------- date helpers (local calendar dates as YYYY-MM-DD) ----------
 const pad = (n) => String(n).padStart(2, '0');
@@ -32,11 +33,30 @@ const state = {
 
 // ---------- api ----------
 async function api(method, url, body) {
-  const res = await fetch(url, {
-    method,
-    headers: body ? { 'Content-Type': 'application/json' } : {},
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  if (Native.isNative && !Native.getServerUrl()) throw new Error('Not connected to a server yet');
+  let res;
+  try {
+    res = await fetch(Native.apiBase() + url, {
+      method,
+      headers: body ? { 'Content-Type': 'application/json' } : {},
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch (e) {
+    showOffline(true);
+    throw new Error(Native.isNative ? "Can't reach the server" : 'Network error');
+  }
+  showOffline(false);
+  return handleResponse(res);
+}
+
+function showOffline(on) {
+  const bar = document.querySelector('#offline');
+  if (!bar || !Native.isNative) return;
+  bar.hidden = !on;
+  if (on) document.querySelector('#offline-msg').textContent = `Can't reach ${Native.getServerUrl()}`;
+}
+
+async function handleResponse(res) {
   if (!res.ok) {
     let msg = res.statusText;
     try { msg = (await res.json()).error || msg; } catch { /* ignore */ }
@@ -65,6 +85,7 @@ async function refresh() {
   state.habits = h.habits;
   state.summary = s;
   render();
+  if (Native.isNative) Native.syncReminders(h.habits).catch((e) => console.warn('reminder sync failed', e));
   if (state.view === 'stats') await stats.load();
 }
 
@@ -523,6 +544,7 @@ function urlB64ToUint8(b64) {
 }
 
 async function initPwa() {
+  if (Native.isNative) { updatePushUI(); return; }
   if (!('serviceWorker' in navigator) || !window.isSecureContext) {
     updatePushUI();
     return;
@@ -541,7 +563,27 @@ async function initPwa() {
   updatePushUI();
 }
 
+async function updateNativeSettings() {
+  $('#native-settings').hidden = false;
+  $('#web-settings').hidden = true;
+  $('#server-line').textContent = Native.getServerUrl();
+  const st = await Native.notificationStatus();
+  pushState.subscribed = st === 'granted';
+  const btn = $('#btn-ln');
+  if (st === 'granted') {
+    $('#ln-status').textContent = 'On. Habits with a reminder notify you on this phone, even when the computer is off. Reminders refresh each time you open the app.';
+    btn.hidden = true;
+  } else if (st === 'denied') {
+    $('#ln-status').textContent = 'Blocked. Allow notifications for Habit Tracker in Android Settings → Apps.';
+    btn.hidden = true;
+  } else {
+    $('#ln-status').textContent = 'Off. Allow notifications to get habit reminders on this phone.';
+    btn.hidden = false;
+  }
+}
+
 function updatePushUI() {
+  if (Native.isNative) { updateNativeSettings(); return; }
   const status = $('#push-status');
   const btn = $('#btn-push');
   const test = $('#btn-push-test');
@@ -617,6 +659,37 @@ window.addEventListener('appinstalled', () => { $('#btn-install').hidden = true;
 
 initPwa();
 
+// ---------- Android app ----------
+if (Native.isNative) {
+  $('#btn-server').addEventListener('click', () => guard(async () => {
+    dlgSettings.close();
+    if (await Native.showConnectScreen({ cancellable: true })) { await refresh(); toast('Connected'); }
+  }));
+  $('#btn-ln').addEventListener('click', () => guard(async () => {
+    const st = await Native.requestNotifications();
+    await updateNativeSettings();
+    if (st === 'granted') {
+      const n = await Native.syncReminders(state.habits);
+      toast(n ? `${n} reminders scheduled` : 'Notifications on');
+    }
+  }));
+  $('#offline-retry').addEventListener('click', () => guard(refresh));
+  $('#offline-change').addEventListener('click', () => guard(async () => {
+    if (await Native.showConnectScreen({ cancellable: true })) await refresh();
+  }));
+  Native.initNativeShell({
+    onResume: () => guard(refresh),
+    onBack: () => {
+      const open = document.querySelector('dialog[open]');
+      if (open) { open.close(); return true; }
+      if (document.querySelector('#connect')) return false;
+      if (state.view === 'stats') { setView('habits'); return true; }
+      if (state.selected !== todayKey()) { goToday(); return true; }
+      return false;
+    },
+  });
+}
+
 // ---------- views ----------
 const stats = createStatsView({
   api,
@@ -656,4 +729,12 @@ function setView(v) {
 window.addEventListener('hashchange', () => setView(location.hash === '#stats' ? 'stats' : 'habits'));
 
 applyView();
-guard(refresh);
+Native.ensureServer().then(async () => {
+  await guard(refresh);
+  if (!Native.isNative) return;
+  // Ask once on first launch so reminders work without digging into Settings.
+  const st = await Native.notificationStatus();
+  if (st === 'prompt' || st === 'prompt-with-rationale') {
+    if ((await Native.requestNotifications()) === 'granted') guard(refresh);
+  }
+});

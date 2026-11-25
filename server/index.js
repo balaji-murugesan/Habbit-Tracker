@@ -22,6 +22,27 @@ function createApp(db, push = null) {
   const app = express();
   app.use(express.json({ limit: '2mb' }));
 
+  // CORS for the Android app, whose pages are served from its own origin
+  // (https://localhost inside the Capacitor WebView). Extra origins: ALLOWED_ORIGINS=a,b
+  const allowed = new Set(['https://localhost', 'http://localhost', 'capacitor://localhost',
+    ...(process.env.ALLOWED_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean)]);
+  app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    if (origin && allowed.has(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Vary', 'Origin');
+      res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+      res.setHeader('Access-Control-Max-Age', '86400');
+      // Chrome's Private Network Access preflight for LAN addresses.
+      if (req.headers['access-control-request-private-network']) {
+        res.setHeader('Access-Control-Allow-Private-Network', 'true');
+      }
+      if (req.method === 'OPTIONS') return res.status(204).end();
+    }
+    next();
+  });
+
   const q = {
     habits: db.prepare('SELECT * FROM habits WHERE archived = 0 ORDER BY sort_order, id'),
     habit: db.prepare('SELECT * FROM habits WHERE id = ?'),

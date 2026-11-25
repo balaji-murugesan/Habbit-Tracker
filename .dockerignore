@@ -6,3 +6,5 @@ test
 *.md
 Dockerfile
 docker-compose.yml
+android-app
+.github

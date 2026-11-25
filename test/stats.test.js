@@ -109,3 +109,20 @@ test('byWeekday and weeklyCounts', () => {
   const w = S.weeklyCounts(s, '2026-11-22', 2);
   assert.deepEqual(w, [{ weekStart: '2026-11-09', count: 0 }, { weekStart: '2026-11-16', count: 2 }]);
 });
+
+test('CORS allows the Android app origin only', async () => {
+  const { createApp } = require('../server/index');
+  const { openDb } = require('../server/db');
+  const server = createApp(openDb(':memory:')).listen(0);
+  const port = server.address().port;
+  try {
+    const ok = await fetch(`http://127.0.0.1:${port}/api/habits`, { headers: { Origin: 'https://localhost' } });
+    assert.equal(ok.headers.get('access-control-allow-origin'), 'https://localhost');
+    const pre = await fetch(`http://127.0.0.1:${port}/api/habits/1`, { method: 'OPTIONS', headers: { Origin: 'https://localhost', 'Access-Control-Request-Method': 'PUT' } });
+    assert.equal(pre.status, 204);
+    const evil = await fetch(`http://127.0.0.1:${port}/api/habits`, { headers: { Origin: 'https://evil.example' } });
+    assert.equal(evil.headers.get('access-control-allow-origin'), null);
+  } finally {
+    server.close();
+  }
+});

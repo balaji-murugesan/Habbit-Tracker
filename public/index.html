@@ -157,6 +157,15 @@
         <button type="button" class="icon-btn" data-close aria-label="Close"></button>
       </header>
       <div class="settings-list">
+        <div id="native-settings" hidden>
+          <h3 class="set-h">Server</h3>
+          <p class="small server-line" id="server-line"></p>
+          <button type="button" class="btn ghost block" id="btn-server">Change server</button>
+          <h3 class="set-h">Reminders on this phone</h3>
+          <p class="muted small" id="ln-status">Checking…</p>
+          <button type="button" class="btn ghost block" id="btn-ln" hidden>Allow notifications</button>
+        </div>
+        <div id="web-settings">
         <h3 class="set-h">Notifications</h3>
         <p class="muted small" id="push-status">Checking…</p>
         <button type="button" class="btn ghost block" id="btn-push">Enable notifications on this device</button>
@@ -170,10 +179,16 @@
           <input type="file" id="import-file" accept="application/json" hidden>
         </label>
         <p class="muted small">Importing replaces all current habits, check-ins and notes.</p>
+        </div>
       </div>
     </div>
   </dialog>
 
+  <div id="offline" class="offline" hidden>
+    <span id="offline-msg">Can't reach the server.</span>
+    <button type="button" class="btn ghost" id="offline-retry">Retry</button>
+    <button type="button" class="btn ghost" id="offline-change">Change server</button>
+  </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script type="module" src="app.js"></script>
